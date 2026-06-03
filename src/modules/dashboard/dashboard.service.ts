@@ -4,8 +4,8 @@ import type {
   DashboardInsights,
   RecentActivityResponse,
 } from './dashboard.interface';
-import { PrismaService } from 'prisma/prisma.service';
-import { RedisService } from 'src/redis/redis.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
 
 @Injectable()
 export class DashboardService {

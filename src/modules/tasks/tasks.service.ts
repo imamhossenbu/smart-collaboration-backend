@@ -8,9 +8,9 @@ import { TaskStatus, Role, Priority, Prisma } from '@prisma/client';
 import type { Task } from '@prisma/client';
 
 import type { CreateTaskDto } from './task.schema';
-import { PrismaService } from 'prisma/prisma.service';
-import { RedisService } from 'src/redis/redis.service';
-import { JwtPayload } from 'src/common/interfaces/request-with-user.interface';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
+import { JwtPayload } from '../../common/interfaces/request-with-user.interface';
 
 interface TaskFilterQuery {
   search?: string;

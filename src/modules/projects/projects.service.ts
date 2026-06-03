@@ -7,8 +7,8 @@ import {
 import { ProjectStatus } from '@prisma/client';
 import type { CreateProjectDto } from './project.schema';
 import type { Project, ProjectMember } from '@prisma/client';
-import { PrismaService } from 'prisma/prisma.service';
-import { RedisService } from 'src/redis/redis.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
 
 @Injectable()
 export class ProjectsService {

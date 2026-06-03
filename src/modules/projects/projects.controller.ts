@@ -19,10 +19,10 @@ import {
   AddMemberSchema,
 } from './project.schema';
 import type { Project, ProjectMember } from '@prisma/client';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { Roles, RolesGuard } from 'src/common/guards/roles.guard';
-import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import * as requestWithUserInterface from 'src/common/interfaces/request-with-user.interface';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Roles, RolesGuard } from '../../common/guards/roles.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
 @Controller('api/v1/projects')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,7 +34,7 @@ export class ProjectsController {
   @UsePipes(new ZodValidationPipe(CreateProjectSchema))
   async create(
     @Body() body: CreateProjectDto,
-    @Req() req: requestWithUserInterface.RequestWithUser,
+    @Req() req: RequestWithUser,
   ): Promise<Project> {
     if (new Date(body.deadline) < new Date()) {
       throw new BadRequestException('Please select a valid deadline.');
@@ -53,7 +53,7 @@ export class ProjectsController {
   async addMember(
     @Param('id') id: string,
     @Body() body: AddMemberDto,
-    @Req() req: requestWithUserInterface.RequestWithUser,
+    @Req() req: RequestWithUser,
   ): Promise<ProjectMember> {
     return this.projectsService.addMember(id, body.userId, req.user.id);
   }
@@ -64,7 +64,7 @@ export class ProjectsController {
   async update(
     @Param('id') id: string,
     @Body() body: Partial<CreateProjectDto>,
-    @Req() req: requestWithUserInterface.RequestWithUser,
+    @Req() req: RequestWithUser,
   ): Promise<Project> {
     return this.projectsService.update(id, body, req.user.id);
   }
@@ -73,7 +73,7 @@ export class ProjectsController {
   @Roles('ADMIN')
   async remove(
     @Param('id') id: string,
-    @Req() req: requestWithUserInterface.RequestWithUser,
+    @Req() req: RequestWithUser,
   ): Promise<{ message: string }> {
     return this.projectsService.remove(id, req.user.id);
   }

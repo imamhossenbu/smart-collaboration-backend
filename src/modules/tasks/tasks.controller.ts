@@ -16,10 +16,10 @@ import { CreateTaskSchema, UpdateTaskStatusSchema } from './task.schema';
 import { Priority, TaskStatus } from '@prisma/client';
 import type { CreateTaskDto, UpdateTaskStatusDto } from './task.schema';
 import type { Task } from '@prisma/client';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { Roles, RolesGuard } from 'src/common/guards/roles.guard';
-import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import * as requestWithUserInterface from 'src/common/interfaces/request-with-user.interface';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Roles, RolesGuard } from '../../common/guards/roles.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
 interface PaginatedTasksResponse {
   data: Task[];
@@ -41,7 +41,7 @@ export class TasksController {
   @UsePipes(new ZodValidationPipe(CreateTaskSchema))
   async create(
     @Body() body: CreateTaskDto,
-    @Req() req: requestWithUserInterface.RequestWithUser,
+    @Req() req: RequestWithUser,
   ): Promise<Task> {
     return this.tasksService.create(body, req.user.id);
   }
@@ -51,7 +51,7 @@ export class TasksController {
   async updateStatus(
     @Param('id') id: string,
     @Body() body: UpdateTaskStatusDto,
-    @Req() req: requestWithUserInterface.RequestWithUser,
+    @Req() req: RequestWithUser,
   ): Promise<Task> {
     return this.tasksService.updateStatus(id, body.status, req.user);
   }
