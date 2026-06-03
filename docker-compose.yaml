@@ -1,16 +1,14 @@
-
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: colabsync_db
     restart: always
     environment:
-      POSTGRES_USER: app_user
-      POSTGRES_PASSWORD: app_secure_password
-      POSTGRES_DB: colabsync
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -21,14 +19,14 @@ services:
     ports:
       - "6379:6379"
 
-  nginx:
-    image: nginx:alpine
-    container_name: colabsync_nginx
+  api:
+    build: .
+    container_name: colabsync_api
     restart: always
+    env_file:
+      - .env 
     ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - "${PORT}:${PORT}"
     depends_on:
       - postgres
       - redis
