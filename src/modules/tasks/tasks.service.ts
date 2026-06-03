@@ -1,37 +1,46 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Injectable,
   BadRequestException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { TaskStatus, Prisma } from '@prisma/client';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { TaskStatus, Role, Priority, Prisma } from '@prisma/client';
+import type { Task } from '@prisma/client';
 
-interface CreateTaskDto {
-  projectId: string;
-  title: string;
-  dueDate: string | Date;
+import type { CreateTaskDto } from './task.schema';
+import { PrismaService } from 'prisma/prisma.service';
+import { RedisService } from 'src/redis/redis.service';
+import { JwtPayload } from 'src/common/interfaces/request-with-user.interface';
+
+interface TaskFilterQuery {
+  search?: string;
   status?: TaskStatus;
+  priority?: Priority;
   assignedToId?: string;
-  description?: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  projectId?: string;
+  page: number;
+  limit: number;
+  sortBy?: 'createdAt' | 'dueDate' | 'priority';
 }
 
-interface UserPayload {
-  id: string;
-  role: 'ADMIN' | 'PROJECT_MANAGER' | 'TEAM_MEMBER';
-  email: string;
+interface PaginatedTasksResponse {
+  data: Task[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
-  async create(data: CreateTaskDto, id: string) {
+  async create(data: CreateTaskDto, userId: string): Promise<Task> {
     const dueDate = new Date(data.dueDate);
     if (dueDate < new Date()) {
       throw new BadRequestException('Please select a valid deadline.');
@@ -51,36 +60,134 @@ export class TasksService {
       throw new BadRequestException('Completed tasks cannot be reassigned.');
     }
 
+    if (data.assignedToId) {
+      const isMember = await this.prisma.projectMember.findUnique({
+        where: {
+          projectId_userId: {
+            projectId: data.projectId,
+            userId: data.assignedToId,
+          },
+        },
+      });
+      if (!isMember) {
+        throw new BadRequestException(
+          'Assigned user is not a member of this project.',
+        );
+      }
+    }
+
     const taskData: Prisma.TaskCreateInput = {
       title: data.title,
       dueDate,
-      status: data.status,
-      project: { connect: { id: data.projectId } },
-      ...(data.assignedToId && {
-        assignedTo: { connect: { id: data.assignedToId } },
-      }),
-      description: data.description,
+      status: data.status ?? TaskStatus.TODO,
       priority: data.priority,
+      description: data.description,
+      project: { connect: { id: data.projectId } },
     };
 
-    return this.prisma.task.create({
-      data: taskData,
+    if (data.assignedToId) {
+      taskData.assignedTo = { connect: { id: data.assignedToId } };
+    }
+
+    const task = await this.prisma.task.create({ data: taskData });
+
+    await this.prisma.activityLog.create({
+      data: {
+        message: `Task "${data.title}" created under project`,
+        userId,
+        projectId: data.projectId,
+        taskId: task.id,
+      },
     });
+
+    await this.redis.del('dashboard:insights');
+
+    return task;
   }
 
-  async updateStatus(id: string, status: TaskStatus, user: UserPayload) {
+  async updateStatus(
+    id: string,
+    status: TaskStatus,
+    user: JwtPayload,
+  ): Promise<Task> {
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task) throw new NotFoundException('Task not found.');
 
-    if (user.role === 'TEAM_MEMBER' && task.assignedToId !== user.id) {
+    if (user.role === Role.TEAM_MEMBER && task.assignedToId !== user.id) {
       throw new ForbiddenException(
         'Unauthorized: Cannot modify external assigned workloads.',
       );
     }
 
-    return this.prisma.task.update({
+    const updatedTask = await this.prisma.task.update({
       where: { id },
       data: { status },
     });
+
+    await this.prisma.activityLog.create({
+      data: {
+        message: `Task "${task.title}" marked as ${status}`,
+        userId: user.id,
+        projectId: task.projectId,
+        taskId: task.id,
+      },
+    });
+
+    await this.redis.del('dashboard:insights');
+
+    return updatedTask;
+  }
+
+  async findAllFiltered(
+    query: TaskFilterQuery,
+  ): Promise<PaginatedTasksResponse> {
+    const {
+      search,
+      status,
+      priority,
+      assignedToId,
+      projectId,
+      page,
+      limit,
+      sortBy,
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const whereClause: Prisma.TaskWhereInput = {};
+
+    if (projectId) whereClause.projectId = projectId;
+    if (status) whereClause.status = status;
+    if (priority) whereClause.priority = priority;
+    if (assignedToId) whereClause.assignedToId = assignedToId;
+
+    if (search) {
+      whereClause.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const orderByClause: Prisma.TaskOrderByWithRelationInput = {};
+    if (sortBy) {
+      orderByClause[sortBy] = 'asc';
+    } else {
+      orderByClause.createdAt = 'desc';
+    }
+
+    const [tasks, total] = await Promise.all([
+      this.prisma.task.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: orderByClause,
+        include: { assignedTo: { select: { id: true, name: true } } },
+      }),
+      this.prisma.task.count({ where: whereClause }),
+    ]);
+
+    return {
+      data: tasks,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 }

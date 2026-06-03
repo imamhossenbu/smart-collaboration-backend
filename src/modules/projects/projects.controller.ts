@@ -1,39 +1,41 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Controller,
   Post,
   Get,
+  Put,
+  Delete,
   Body,
+  Param,
   UseGuards,
   UsePipes,
   Req,
   BadRequestException,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { ProjectsService } from './projects.service';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard, Roles } from '../../common/guards/roles.guard';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { CreateProjectSchema } from './project.schema';
-import type { CreateProjectDto } from './project.schema';
-
-interface RequestWithUser extends Request {
-  user: {
-    id: string;
-    role: string;
-    email: string;
-  };
-}
+import {
+  type CreateProjectDto,
+  type AddMemberDto,
+  CreateProjectSchema,
+  AddMemberSchema,
+} from './project.schema';
+import type { Project, ProjectMember } from '@prisma/client';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { Roles, RolesGuard } from 'src/common/guards/roles.guard';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import * as requestWithUserInterface from 'src/common/interfaces/request-with-user.interface';
 
 @Controller('api/v1/projects')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProjectsController {
-  constructor(private projectsService: ProjectsService) {}
+  constructor(private readonly projectsService: ProjectsService) {}
 
   @Post()
   @Roles('ADMIN', 'PROJECT_MANAGER')
   @UsePipes(new ZodValidationPipe(CreateProjectSchema))
-  async create(@Body() body: CreateProjectDto, @Req() req: RequestWithUser) {
+  async create(
+    @Body() body: CreateProjectDto,
+    @Req() req: requestWithUserInterface.RequestWithUser,
+  ): Promise<Project> {
     if (new Date(body.deadline) < new Date()) {
       throw new BadRequestException('Please select a valid deadline.');
     }
@@ -41,7 +43,38 @@ export class ProjectsController {
   }
 
   @Get()
-  async findAll() {
+  async findAll(): Promise<Project[]> {
     return this.projectsService.findAll();
+  }
+
+  @Post(':id/members')
+  @Roles('ADMIN', 'PROJECT_MANAGER')
+  @UsePipes(new ZodValidationPipe(AddMemberSchema))
+  async addMember(
+    @Param('id') id: string,
+    @Body() body: AddMemberDto,
+    @Req() req: requestWithUserInterface.RequestWithUser,
+  ): Promise<ProjectMember> {
+    return this.projectsService.addMember(id, body.userId, req.user.id);
+  }
+
+  @Put(':id')
+  @Roles('ADMIN', 'PROJECT_MANAGER')
+  @UsePipes(new ZodValidationPipe(CreateProjectSchema.partial()))
+  async update(
+    @Param('id') id: string,
+    @Body() body: Partial<CreateProjectDto>,
+    @Req() req: requestWithUserInterface.RequestWithUser,
+  ): Promise<Project> {
+    return this.projectsService.update(id, body, req.user.id);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  async remove(
+    @Param('id') id: string,
+    @Req() req: requestWithUserInterface.RequestWithUser,
+  ): Promise<{ message: string }> {
+    return this.projectsService.remove(id, req.user.id);
   }
 }

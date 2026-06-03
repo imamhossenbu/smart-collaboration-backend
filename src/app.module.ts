@@ -6,6 +6,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { RedisModule } from './redis/redis.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { AppService } from './app.service';
     AuthModule,
     ProjectsModule,
     TasksModule,
+    RedisModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

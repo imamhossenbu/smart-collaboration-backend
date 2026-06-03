@@ -1,13 +1,37 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import type { User } from '@prisma/client';
-import type { SignupDto, LoginDto } from './auth.schema';
+import { Role } from '@prisma/client';
+
+export interface AuthUserResponse {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    name: string;
+    role: Role;
+  };
+}
+
+// DTO definitions (local) to satisfy typing when external DTOs are not imported
+interface SignupDto {
+  email: string;
+  name: string;
+  password: string;
+  role?: Role;
+}
+
+interface LoginDto {
+  email: string;
+  password: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -16,9 +40,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async signup(
-    data: SignupDto,
-  ): Promise<Pick<User, 'id' | 'name' | 'email' | 'role'>> {
+  async signup(data: SignupDto): Promise<AuthUserResponse> {
     const userExists = await this.prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -34,20 +56,23 @@ export class AuthService {
         email: data.email,
         name: data.name,
         password: hashedPassword,
-        role: data.role,
+        role: data.role ?? Role.TEAM_MEMBER,
       },
       select: { id: true, name: true, email: true, role: true },
     });
   }
 
-  async login(
-    data: LoginDto,
-  ): Promise<{ token: string; user: Pick<User, 'id' | 'name' | 'role'> }> {
+  async login(data: LoginDto): Promise<LoginResponse> {
     const user = await this.prisma.user.findUnique({
       where: { email: data.email },
     });
 
-    if (!user || !(await bcrypt.compare(data.password, user.password))) {
+    if (!user) {
+      throw new BadRequestException('Invalid email or password.');
+    }
+
+    const isPasswordValid = await bcrypt.compare(data.password, user.password);
+    if (!isPasswordValid) {
       throw new BadRequestException('Invalid email or password.');
     }
 
