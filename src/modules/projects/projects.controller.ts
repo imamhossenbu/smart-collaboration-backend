@@ -12,16 +12,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
-import {
-  type CreateProjectDto,
-  type AddMemberDto,
-  CreateProjectSchema,
-  AddMemberSchema,
-} from './project.schema';
-import type { Project, ProjectMember } from '@prisma/client';
+import { CreateProjectSchema, AddMemberSchema } from './project.schema';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/guards/roles.guard';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+
+// Type imports to fix isolatedModules error
+import type { CreateProjectDto, AddMemberDto } from './project.schema';
+import type { Project, ProjectMember } from '@prisma/client';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
 @Controller('api/v1/projects')
@@ -45,6 +43,11 @@ export class ProjectsController {
   @Get()
   async findAll(): Promise<Project[]> {
     return this.projectsService.findAll();
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string): Promise<any> {
+    return this.projectsService.findOne(id);
   }
 
   @Post(':id/members')

@@ -1,14 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-
 import { ProjectStatus } from '@prisma/client';
-import type { CreateProjectDto } from './project.schema';
-import type { Project, ProjectMember } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import type { CreateProjectDto } from './project.schema';
+import type { Project, ProjectMember } from '@prisma/client';
 
 @Injectable()
 export class ProjectsService {
@@ -17,15 +18,27 @@ export class ProjectsService {
     private readonly redis: RedisService,
   ) {}
 
+  // ১. প্রজেক্ট তৈরির মেথড
   async create(data: CreateProjectDto, userId: string): Promise<Project> {
     const project = await this.prisma.project.create({
       data: {
         name: data.name,
-        deadline: new Date(data.deadline),
         description: data.description,
+        budget: data.budget ?? 0,
+        deadline: new Date(data.deadline),
         status: data.status ?? ProjectStatus.ACTIVE,
       },
     });
+
+    if (data.milestones && data.milestones.length > 0) {
+      await this.prisma.milestone.createMany({
+        data: data.milestones.map((m) => ({
+          projectId: project.id,
+          title: m.title.trim(),
+          status: 'PENDING',
+        })),
+      });
+    }
 
     await this.prisma.activityLog.create({
       data: {
@@ -36,20 +49,35 @@ export class ProjectsService {
     });
 
     await this.redis.del('dashboard:insights');
-
     return project;
   }
 
+  // ২. সব প্রজেক্ট দেখার মেথড
   async findAll(): Promise<Project[]> {
     return this.prisma.project.findMany({
       include: {
-        _count: {
-          select: { tasks: true },
-        },
+        _count: { select: { tasks: true, milestones: true } },
       },
     });
   }
 
+  // ৩. একটি প্রজেক্ট ডিটেইলস দেখার মেথড
+  async findOne(id: string): Promise<any> {
+    const project = await this.prisma.project.findUnique({
+      where: { id },
+      include: {
+        members: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
+        tasks: true,
+        milestones: true,
+      },
+    });
+    if (!project) throw new NotFoundException('Project not found');
+    return project;
+  }
+
+  // ৪. মেম্বার যুক্ত করার মেথড
   async addMember(
     projectId: string,
     userId: string,
@@ -82,10 +110,10 @@ export class ProjectsService {
     });
 
     await this.redis.del('dashboard:insights');
-
     return member;
   }
 
+  // ৫. প্রজেক্ট আপডেট করার মেথড
   async update(
     id: string,
     data: Partial<CreateProjectDto>,
@@ -99,24 +127,17 @@ export class ProjectsService {
       data: {
         name: data.name,
         description: data.description,
+        budget: data.budget,
         status: data.status,
         deadline: data.deadline ? new Date(data.deadline) : undefined,
       },
     });
 
-    await this.prisma.activityLog.create({
-      data: {
-        message: `Project "${updated.name}" updated`,
-        userId,
-        projectId: id,
-      },
-    });
-
     await this.redis.del('dashboard:insights');
-
     return updated;
   }
 
+  // ৬. প্রজেক্ট ডিলিট করার মেথড
   async remove(id: string, userId: string): Promise<{ message: string }> {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
@@ -128,7 +149,6 @@ export class ProjectsService {
     });
 
     await this.redis.del('dashboard:insights');
-
     return { message: 'Project successfully deleted' };
   }
 }
