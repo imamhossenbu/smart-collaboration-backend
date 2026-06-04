@@ -122,19 +122,37 @@ export class ProjectsService {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
 
-    const updated = await this.prisma.project.update({
-      where: { id },
-      data: {
-        name: data.name,
-        description: data.description,
-        budget: data.budget,
-        status: data.status,
-        deadline: data.deadline ? new Date(data.deadline) : undefined,
-      },
-    });
+    // ডাটাবেজ ট্রানজেকশন ব্যবহার করা ভালো যাতে সব ডাটা একসাথে আপডেট হয়
+    return await this.prisma.$transaction(async (tx) => {
+      // ১. প্রজেক্টের বেসিক ইনফো আপডেট
+      const updated = await tx.project.update({
+        where: { id },
+        data: {
+          name: data.name,
+          description: data.description,
+          budget: data.budget,
+          status: data.status,
+          deadline: data.deadline ? new Date(data.deadline) : undefined,
+        },
+      });
 
-    await this.redis.del('dashboard:insights');
-    return updated;
+      // ২. মাইলস্টোন আপডেট (যদি পাঠানো হয়)
+      if (data.milestones) {
+        // আগে পুরনো মাইলস্টোনগুলো ডিলিট করা (অথবা কানেক্ট/ডিসকানেক্ট লজিক বসানো)
+        await tx.milestone.deleteMany({ where: { projectId: id } });
+        // নতুনগুলো তৈরি করা
+        await tx.milestone.createMany({
+          data: data.milestones.map((m) => ({
+            projectId: id,
+            title: m.title.trim(),
+            status: 'PENDING',
+          })),
+        });
+      }
+
+      await this.redis.del('dashboard:insights');
+      return updated;
+    });
   }
 
   // ৬. প্রজেক্ট ডিলিট করার মেথড

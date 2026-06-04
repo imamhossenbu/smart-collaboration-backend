@@ -68,7 +68,8 @@ export class ProjectsController {
     @Param('id') id: string,
     @Body() body: Partial<CreateProjectDto>,
     @Req() req: RequestWithUser,
-  ): Promise<Project> {
+  ) {
+    console.log('Update Request Body:', body); 
     return this.projectsService.update(id, body, req.user.id);
   }
 
