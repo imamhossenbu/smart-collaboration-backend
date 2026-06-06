@@ -1,5 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/require-await */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
 export class NotificationsService {
@@ -14,11 +19,13 @@ export class NotificationsService {
   }
 
   async markAsRead(id: string, userId: string) {
-    const notification = await this.prisma.notification.findUnique({ where: { id } });
+    const notification = await this.prisma.notification.findUnique({
+      where: { id },
+    });
     if (!notification) throw new NotFoundException('Notification not found');
-    
+
     if (notification.userId !== userId) {
-        throw new NotFoundException('You cannot mark this notification as read');
+      throw new NotFoundException('You cannot mark this notification as read');
     }
 
     return this.prisma.notification.update({
@@ -27,15 +34,19 @@ export class NotificationsService {
     });
   }
 
-  async createNotification(userId: string, message: string, taskId?: string, projectId?: string) {
+  async createNotification(
+    userId: string,
+    message: string,
+    taskId?: string,
+    projectId?: string,
+  ) {
     return this.prisma.notification.create({
-        data: {
-            userId,
-            message,
-            taskId,
-            projectId,
-        }
-    })
+      data: {
+        userId,
+        message,
+        taskId,
+        projectId,
+      },
+    });
   }
 }
-

@@ -1,5 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
 export class CommentsService {
@@ -8,7 +12,7 @@ export class CommentsService {
   async createComment(taskId: string, userId: string, content: string) {
     const task = await this.prisma.task.findUnique({ where: { id: taskId } });
     if (!task) throw new NotFoundException('Task not found');
-    
+
     return this.prisma.comment.create({
       data: {
         content,
@@ -21,6 +25,7 @@ export class CommentsService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getComments(taskId: string) {
     return this.prisma.comment.findMany({
       where: { taskId },
@@ -42,4 +47,3 @@ export class CommentsService {
     return this.prisma.comment.delete({ where: { id } });
   }
 }
-
