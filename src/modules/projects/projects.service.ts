@@ -61,20 +61,29 @@ export class ProjectsService {
     });
   }
 
-  // ৩. একটি প্রজেক্ট ডিটেইলস দেখার মেথড
   async findOne(id: string): Promise<any> {
     const project = await this.prisma.project.findUnique({
       where: { id },
       include: {
+        tasks: true,
+        milestones: true,
         members: {
           include: { user: { select: { id: true, name: true, email: true } } },
         },
-        tasks: true,
-        milestones: true,
       },
     });
+
     if (!project) throw new NotFoundException('Project not found');
-    return project;
+
+    // প্রগ্রেস ক্যালকুলেশন: মোট টাস্কের মধ্যে কয়টি সম্পন্ন হয়েছে
+    const totalTasks = project.tasks.length;
+    const completedTasks = project.tasks.filter(
+      (t) => t.status === 'COMPLETED',
+    ).length;
+    const progress =
+      totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    return { ...project, progress };
   }
 
   // ৪. মেম্বার যুক্ত করার মেথড

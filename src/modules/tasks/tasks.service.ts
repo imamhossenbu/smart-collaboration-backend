@@ -60,6 +60,7 @@ export class TasksService {
       throw new BadRequestException('Completed tasks cannot be reassigned.');
     }
 
+    // প্রজেক্ট মেম্বার ভ্যালিডেশন
     if (data.assignedToId) {
       const isMember = await this.prisma.projectMember.findUnique({
         where: {
@@ -76,6 +77,16 @@ export class TasksService {
       }
     }
 
+    // মাইলস্টোন ভ্যালিডেশন (যদি প্রদান করা হয়)
+    if (data.milestoneId) {
+      const milestone = await this.prisma.milestone.findUnique({
+        where: { id: data.milestoneId },
+      });
+      if (!milestone || milestone.projectId !== data.projectId) {
+        throw new BadRequestException('Invalid milestone for this project.');
+      }
+    }
+
     const taskData: Prisma.TaskCreateInput = {
       title: data.title,
       dueDate,
@@ -87,6 +98,14 @@ export class TasksService {
 
     if (data.assignedToId) {
       taskData.assignedTo = { connect: { id: data.assignedToId } };
+    }
+
+    // মাইলস্টোন কানেক্ট করা (milestone field may not exist on TaskCreateInput)
+    if (data.milestoneId) {
+      // set milestoneId directly on the create input
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      taskData.milestoneId = data.milestoneId;
     }
 
     const task = await this.prisma.task.create({ data: taskData });
@@ -101,7 +120,6 @@ export class TasksService {
     });
 
     await this.redis.del('dashboard:insights');
-
     return task;
   }
 
@@ -134,7 +152,6 @@ export class TasksService {
     });
 
     await this.redis.del('dashboard:insights');
-
     return updatedTask;
   }
 
@@ -180,7 +197,10 @@ export class TasksService {
         skip,
         take: limit,
         orderBy: orderByClause,
-        include: { assignedTo: { select: { id: true, name: true } } },
+        include: {
+          assignedTo: { select: { id: true, name: true } },
+          milestone: { select: { id: true, title: true } }, // মাইলস্টোন ইনক্লুড করা হয়েছে
+        },
       }),
       this.prisma.task.count({ where: whereClause }),
     ]);

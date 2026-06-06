@@ -3,6 +3,7 @@ import { Priority, TaskStatus } from '@prisma/client';
 
 export const CreateTaskSchema = z.object({
   projectId: z.string().uuid(),
+  milestoneId: z.string().uuid().optional(),
   title: z.string().min(1),
   description: z.string().optional(),
   dueDate: z.string().datetime(),

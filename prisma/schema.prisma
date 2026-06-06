@@ -60,7 +60,6 @@ model Project {
   activities ActivityLog[]
 }
 
-
 model Milestone {
   id        String   @id @default(uuid())
   projectId String
@@ -69,7 +68,8 @@ model Milestone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]  // মাইলস্টোনের সাথে টাস্কের সম্পর্ক যোগ করা হয়েছে
 }
 
 model ProjectMember {
@@ -85,6 +85,7 @@ model ProjectMember {
 model Task {
   id           String     @id @default(uuid())
   projectId    String
+  milestoneId  String?    // নতুন ফিল্ড (মাইলস্টোন আইডি)
   assignedToId String?
   title        String
   description  String?
@@ -94,8 +95,9 @@ model Task {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignedTo User?         @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone  Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull) // মাইলস্টোন রিলেশন
+  assignedTo User?      @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
   activities ActivityLog[]
 
   @@unique([projectId, title]) 

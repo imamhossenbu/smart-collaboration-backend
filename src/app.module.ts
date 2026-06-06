@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisModule } from './redis/redis.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { UsersModule } from './modules/user/users.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     PrismaModule,
     AuthModule,
     ProjectsModule,
+    UsersModule,
     TasksModule,
     RedisModule,
     DashboardModule,
