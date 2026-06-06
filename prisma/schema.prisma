@@ -39,9 +39,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projects   ProjectMember[]
-  tasks      Task[]          @relation("AssignedTasks")
-  activities ActivityLog[]
+  projects      ProjectMember[]
+  tasks         Task[]          @relation("AssignedTasks")
+  activities    ActivityLog[]
+  comments      Comment[]
+  notifications Notification[]
 }
 
 model Project {
@@ -54,10 +56,11 @@ model Project {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  members    ProjectMember[]
-  tasks      Task[]
-  milestones Milestone[]     
-  activities ActivityLog[]
+  members       ProjectMember[]
+  tasks         Task[]
+  milestones    Milestone[]     
+  activities    ActivityLog[]
+  notifications Notification[]
 }
 
 model Milestone {
@@ -69,7 +72,7 @@ model Milestone {
   updatedAt DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]  // মাইলস্টোনের সাথে টাস্কের সম্পর্ক যোগ করা হয়েছে
+  tasks   Task[]
 }
 
 model ProjectMember {
@@ -85,20 +88,24 @@ model ProjectMember {
 model Task {
   id           String     @id @default(uuid())
   projectId    String
-  milestoneId  String?    // নতুন ফিল্ড (মাইলস্টোন আইডি)
+  milestoneId  String?
   assignedToId String?
   title        String
   description  String?
   dueDate      DateTime
   priority     Priority   @default(MEDIUM)
   status       TaskStatus @default(TODO)
+  progress     Int        @default(0) 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestone  Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull) // মাইলস্টোন রিলেশন
-  assignedTo User?      @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
-  activities ActivityLog[]
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone     Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  assignedTo    User?         @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  activities    ActivityLog[]
+  comments      Comment[]
+  attachments   Attachment[]
+  notifications Notification[]
 
   @@unique([projectId, title]) 
 }
@@ -112,6 +119,42 @@ model ActivityLog {
   createdAt DateTime @default(now())
 
   user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  filename  String
+  url       String
+  taskId    String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  isRead    Boolean  @default(false)
+  userId    String
+  projectId String?
+  taskId    String?
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }

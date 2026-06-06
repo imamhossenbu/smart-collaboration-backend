@@ -1,15 +1,25 @@
-/* eslint-disable prettier/prettier */
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { usersService } from './users.controller';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { Role } from '@prisma/client';
 
-@Controller('api/v1/users')
-@UseGuards(JwtAuthGuard)
-export class UsersController {
-  constructor(private readonly usersService: usersService) {}
+@Injectable()
+export class UsersService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  @Get()
-  async getAllUsers() {
-    return this.usersService.findAll();
+  async findAll() {
+    return this.prisma.user.findMany({
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async updateRole(id: string, role: Role) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { role },
+    });
   }
 }

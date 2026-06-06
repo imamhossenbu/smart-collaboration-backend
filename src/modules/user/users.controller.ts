@@ -1,15 +1,24 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { Controller, Get, Injectable, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { Roles, RolesGuard } from '../../common/guards/roles.guard';
 
-@Injectable()
-export class usersService {
-  constructor(private readonly prisma: PrismaService) {}
+import { Role } from '@prisma/client';
+import { UsersService } from './users.service';
 
-  async findAll(): Promise<any[]> {
-    return this.prisma.user.findMany({
-      select: { id: true, name: true, email: true },
-    });
+@Controller('api/v1/users')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  @Roles(Role.ADMIN)
+  async getAllUsers() {
+    return this.usersService.findAll();
+  }
+
+  @Patch(':id/role')
+  @Roles(Role.ADMIN)
+  async updateRole(@Param('id') id: string, @Body('role') role: Role) {
+    return this.usersService.updateRole(id, role);
   }
 }

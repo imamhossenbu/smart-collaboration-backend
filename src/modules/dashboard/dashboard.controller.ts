@@ -1,10 +1,7 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+// 'import type' ব্যবহার করুন যাতে isolatedModules এরর না আসে
+import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 import { DashboardService } from './dashboard.service';
-import {
-  DashboardInsights,
-  RecentActivityResponse,
-} from './dashboard.interface';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @Controller('api/v1/dashboard')
@@ -13,12 +10,12 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('insights')
-  async getInsights(): Promise<DashboardInsights> {
-    return this.dashboardService.getInsights();
+  async getInsights(@Req() req: RequestWithUser) {
+    return this.dashboardService.getInsights(req.user);
   }
 
   @Get('recent-activities')
-  async getRecentActivities(): Promise<RecentActivityResponse[]> {
-    return this.dashboardService.getRecentActivities();
+  async getRecentActivities(@Req() req: RequestWithUser) {
+    return this.dashboardService.getRecentActivities(req.user);
   }
 }

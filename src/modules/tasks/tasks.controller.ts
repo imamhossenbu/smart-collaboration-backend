@@ -9,7 +9,12 @@ import {
   UseGuards,
   UsePipes,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { TasksService } from './tasks.service';
 
 import { CreateTaskSchema, UpdateTaskStatusSchema } from './task.schema';
@@ -56,6 +61,15 @@ export class TasksController {
     return this.tasksService.updateStatus(id, body.status, req.user);
   }
 
+  @Patch(':id/progress')
+  async updateProgress(
+    @Param('id') id: string,
+    @Body('progress') progress: number,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.tasksService.updateTaskProgress(id, Number(progress), req.user);
+  }
+
   @Get()
   async findAll(
     @Query('search') search?: string,
@@ -77,5 +91,26 @@ export class TasksController {
       limit: parseInt(limit, 10),
       sortBy,
     });
+  }
+
+  @Post(':id/attachments')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/tasks',
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+      },
+    }),
+  }))
+  async uploadAttachment(
+    @Param('id') taskId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new Error('File not provided');
+    }
+    const url = `/uploads/tasks/${file.filename}`;
+    return this.tasksService.addAttachment(taskId, file.originalname, url);
   }
 }

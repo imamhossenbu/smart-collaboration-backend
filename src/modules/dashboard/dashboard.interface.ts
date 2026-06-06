@@ -6,6 +6,10 @@ export interface KpiCards {
   completedTasks: number;
   pendingTasks: number;
   overdueTasks: number;
+  myActiveProjects?: number;
+  myAssignedTasks?: number;
+  myCompletedTasks?: number;
+  myOverdueTasks?: number;
 }
 
 export interface PriorityDistribution {
